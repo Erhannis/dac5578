@@ -71,6 +71,22 @@ pub enum Channel {
     All = 0xf,
 }
 
+impl From<u8> for Channel {
+    fn from(index: u8) -> Self {
+        match index {
+            0 => Channel::A,
+            1 => Channel::B,
+            2 => Channel::C,
+            3 => Channel::D,
+            4 => Channel::E,
+            5 => Channel::F,
+            6 => Channel::G,
+            7 => Channel::H,
+            _ => panic!("Unkown channel number {}", index),
+        }
+    }
+}
+
 /// The type of the command to send for a Command
 #[derive(Debug)]
 #[repr(u8)]
@@ -147,11 +163,7 @@ where
 
     /// Perform a software reset using the selected mode
     pub fn reset(&mut self, mode: ResetMode) -> Result<(), E> {
-        let bytes = [
-            0x70,
-            mode as u8,
-            0,
-        ];
+        let bytes = [0x70, mode as u8, 0];
         self.i2c.write(self.address, &bytes)
     }
 
