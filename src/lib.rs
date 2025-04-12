@@ -137,25 +137,25 @@ where
     }
 
     /// Write to the channel's DAC input register
-    pub fn write(&mut self, channel: Channel, data: u8) -> Result<(), E> {
+    pub fn write(&mut self, channel: Channel, data: u16) -> Result<(), E> {
         let bytes = Self::encode_command(CommandType::WriteToChannel, channel as u8, data);
         self.i2c.write(self.address, &bytes)
     }
 
     /// Selects DAC channel to be updated
-    pub fn update(&mut self, channel: Channel, data: u8) -> Result<(), E> {
+    pub fn update(&mut self, channel: Channel, data: u16) -> Result<(), E> {
         let bytes = Self::encode_command(CommandType::UpdateChannel, channel as u8, data);
         self.i2c.write(self.address, &bytes)
     }
 
     /// Write to DAC input register for a channel and update channel DAC register
-    pub fn write_and_update(&mut self, channel: Channel, data: u8) -> Result<(), E> {
+    pub fn write_and_update(&mut self, channel: Channel, data: u16) -> Result<(), E> {
         let bytes = Self::encode_command(CommandType::WriteToChannelAndUpdate, channel as u8, data);
         self.i2c.write(self.address, &bytes)
     }
 
     /// Write to Selected DAC Input Register and Update All DAC Registers (Global Software LDAC)
-    pub fn write_and_update_all(&mut self, channel: Channel, data: u8) -> Result<(), E> {
+    pub fn write_and_update_all(&mut self, channel: Channel, data: u16) -> Result<(), E> {
         let bytes =
             Self::encode_command(CommandType::WriteToChannelAndUpdateAll, channel as u8, data);
         self.i2c.write(self.address, &bytes)
@@ -187,7 +187,8 @@ where
     }
 
     /// Encode command type, channel and data into a three byte command
-    fn encode_command(command: CommandType, access: u8, msdb: u8) -> [u8; 3] {
-        [command as u8 | access, msdb, 0]
+    fn encode_command(command: CommandType, access: u8, value: u16) -> [u8; 3] {
+        let value_bytes = value.to_be_bytes();
+        [command as u8 | access, value_bytes[0], value_bytes[1]]
     }
 }

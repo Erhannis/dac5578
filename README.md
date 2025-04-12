@@ -1,9 +1,9 @@
 # dac5578 &emsp;
 
-*Texas Instruments DAC5578 Driver for Rust Embedded HAL*
+*Texas Instruments DACx578 Driver for Rust Embedded HAL*
 This is a driver crate for embedded Rust. It's built on top of the Rust
 [embedded HAL](https://github.com/rust-embedded/embedded-hal)
-It supports sending commands to a TI DAC5578 over I2C.
+It supports sending commands to a TI DAC5578/DAC6578/DAC7578 over I2C.
 
 The driver can be initialized by calling create and passing it an I2C interface.
 The device address (set by ADDR0) also needs to be specified.
@@ -22,7 +22,7 @@ To set the dac output for channel A:
 # use dac5578::*;
 # let mut i2c = Mock::new(&[Transaction::write(98, vec![0x40, 0xff, 0xf0]),]);
 # let mut dac = DAC5578::new(i2c, Address::PinLow);
-dac.write_channel(Channel::A, 128);
+dac.write_channel(Channel::A, 0x8000);
 ```
 
 ## More information
