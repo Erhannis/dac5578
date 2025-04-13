@@ -33,7 +33,7 @@
 #![warn(missing_debug_implementations, missing_docs)]
 
 use core::fmt::Debug;
-use embedded_hal::blocking::i2c::{Read, Write};
+use embedded_hal::blocking::i2c::{Read, Write, WriteRead};
 
 /// user_address can be set by pulling the ADDR0 pin high/low or leave it floating
 #[derive(Debug)]
@@ -87,18 +87,26 @@ impl From<u8> for Channel {
     }
 }
 
-/// The type of the command to send for a Command
+/// The type of the command to send for a Write Command
 #[derive(Debug)]
 #[repr(u8)]
-pub enum CommandType {
+pub enum WriteCommandType {
     /// Write to the channel's DAC input register
-    WriteToChannel = 0x0,
+    WriteToChannel = 0x00,
     /// Selects DAC channel to be updated
     UpdateChannel = 0x10,
     /// Write to DAC input register for a channel and update channel DAC register
     WriteToChannelAndUpdate = 0x30,
     /// Write to Selected DAC Input Register and Update All DAC Registers (Global Software LDAC)
     WriteToChannelAndUpdateAll = 0x20,
+}
+
+/// The type of the command to send for a Read Command
+#[derive(Debug)]
+#[repr(u8)]
+pub enum ReadCommandType {
+    /// Read from the channel's DAC *actual* register (not input)
+    ReadFromChannel = 0x10,
 }
 
 /// Two bit flags indicating the reset mode for the DAC5578
@@ -117,7 +125,7 @@ pub enum ResetMode {
 #[derive(Debug)]
 pub struct DAC5578<I2C>
 where
-    I2C: Read + Write,
+    I2C: Read + Write + WriteRead, //CHECK I don't know whether we actually need WriteRead
 {
     i2c: I2C,
     address: u8,
@@ -125,7 +133,7 @@ where
 
 impl<I2C, E> DAC5578<I2C>
 where
-    I2C: Read<Error = E> + Write<Error = E>,
+    I2C: Read<Error = E> + Write<Error = E> + WriteRead<Error = E>,
 {
     /// Construct a new DAC5578 driver instance.
     /// i2c is the initialized i2c driver port to use, address depends on the state of the ADDR0 pin (see [`Address`])
@@ -138,26 +146,35 @@ where
 
     /// Write to the channel's DAC input register
     pub fn write(&mut self, channel: Channel, data: u16) -> Result<(), E> {
-        let bytes = Self::encode_command(CommandType::WriteToChannel, channel as u8, data);
+        let bytes = Self::encode_write_command(WriteCommandType::WriteToChannel, channel as u8, data);
         self.i2c.write(self.address, &bytes)
     }
 
+    //RAINY Also permit read input registers?
+    /// Read the channel's DAC *actual* register (not input)
+    pub fn read(&mut self, channel: Channel) -> Result<u16, E> {
+        let bytes = Self::encode_read_command(ReadCommandType::ReadFromChannel, channel as u8);
+        let mut response: [u8; 2] = [0, 0];
+        self.i2c.write_read(self.address, &bytes, &mut response)?;
+        Ok(u16::from_be_bytes(response))
+    }
+  
     /// Selects DAC channel to be updated
     pub fn update(&mut self, channel: Channel, data: u16) -> Result<(), E> {
-        let bytes = Self::encode_command(CommandType::UpdateChannel, channel as u8, data);
+        let bytes = Self::encode_write_command(WriteCommandType::UpdateChannel, channel as u8, data);
         self.i2c.write(self.address, &bytes)
     }
 
     /// Write to DAC input register for a channel and update channel DAC register
     pub fn write_and_update(&mut self, channel: Channel, data: u16) -> Result<(), E> {
-        let bytes = Self::encode_command(CommandType::WriteToChannelAndUpdate, channel as u8, data);
+        let bytes = Self::encode_write_command(WriteCommandType::WriteToChannelAndUpdate, channel as u8, data);
         self.i2c.write(self.address, &bytes)
     }
 
     /// Write to Selected DAC Input Register and Update All DAC Registers (Global Software LDAC)
     pub fn write_and_update_all(&mut self, channel: Channel, data: u16) -> Result<(), E> {
         let bytes =
-            Self::encode_command(CommandType::WriteToChannelAndUpdateAll, channel as u8, data);
+            Self::encode_write_command(WriteCommandType::WriteToChannelAndUpdateAll, channel as u8, data);
         self.i2c.write(self.address, &bytes)
     }
 
@@ -187,8 +204,13 @@ where
     }
 
     /// Encode command type, channel and data into a three byte command
-    fn encode_command(command: CommandType, access: u8, value: u16) -> [u8; 3] {
+    fn encode_write_command(command: WriteCommandType, access: u8, value: u16) -> [u8; 3] {
         let value_bytes = value.to_be_bytes();
         [command as u8 | access, value_bytes[0], value_bytes[1]]
+    }
+
+    /// Encode command type and channel into a one-byte command
+    fn encode_read_command(command: ReadCommandType, access: u8) -> [u8; 1] {
+        [command as u8 | access]
     }
 }
